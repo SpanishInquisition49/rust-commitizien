@@ -1,109 +1,9 @@
+mod commit;
+mod parser;
+
+use crate::parser::parse_conventional_commit;
 use std::env;
 use std::process::exit;
-use std::str::FromStr;
-
-#[derive(Debug, PartialEq)]
-enum CommitType {
-    Build,
-    Chore,
-    Ci,
-    Docs,
-    Feat,
-    Fix,
-    Perf,
-    Refactor,
-    Revert,
-    Style,
-    Test,
-}
-
-#[derive(Debug, PartialEq)]
-struct ConventionalCommit {
-    commit_type: CommitType,
-    scope: Option<String>,
-    is_breaking_change: bool,
-    summary: String,
-    body: Option<String>,
-    footer: Option<(String, String)>, // (token, value)
-}
-
-impl FromStr for CommitType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "build" => Ok(CommitType::Build),
-            "chore" => Ok(CommitType::Chore),
-            "ci" => Ok(CommitType::Ci),
-            "docs" => Ok(CommitType::Docs),
-            "feat" => Ok(CommitType::Feat),
-            "fix" => Ok(CommitType::Fix),
-            "perf" => Ok(CommitType::Perf),
-            "refactor" => Ok(CommitType::Refactor),
-            "revert" => Ok(CommitType::Revert),
-            "style" => Ok(CommitType::Style),
-            "test" => Ok(CommitType::Test),
-            _ => Err(()),
-        }
-    }
-}
-
-fn parse_conventional_commit(commit_msg: &str) -> Option<ConventionalCommit> {
-    // Split the commit message into parts
-    let parts: Vec<&str> = commit_msg.splitn(2, ": ").collect();
-
-    if parts.len() != 2 {
-        return None;
-    }
-
-    let header = parts[0];
-    let summary_and_body = parts[1];
-
-    // Parse header
-    let mut header_parts = header.splitn(3, "(");
-    let commit_type_str = header_parts.next()?;
-    let commit_type = CommitType::from_str(commit_type_str).ok()?;
-    let scope = match header_parts.next() {
-        Some(scope_and_breaking) => {
-            let scope = scope_and_breaking.trim_end_matches(")");
-            if scope.is_empty() {
-                None
-            } else {
-                Some(scope.to_string())
-            }
-        }
-        None => None,
-    };
-    let is_breaking_change = header.contains("!");
-
-    // Parse summary and body
-    let mut summary_and_body_parts = summary_and_body.split("\n\n");
-    let summary = summary_and_body_parts.next()?.to_string();
-    let body_and_footer = summary_and_body_parts.next();
-    let (body, footer) = match body_and_footer {
-        Some(body_and_footer) => {
-            let mut body_and_footer_parts = body_and_footer.splitn(2, "\n");
-            let body = body_and_footer_parts.next().map(|s| s.to_string());
-            let footer = body_and_footer_parts.next().map(|s| {
-                let mut footer_parts = s.splitn(2, ": ");
-                let token = footer_parts.next().unwrap_or("").to_string();
-                let value = footer_parts.next().unwrap_or("").to_string();
-                (token, value)
-            });
-            (body, footer)
-        }
-        None => (None, None),
-    };
-
-    Some(ConventionalCommit {
-        commit_type,
-        scope,
-        is_breaking_change,
-        summary,
-        body,
-        footer,
-    })
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -113,6 +13,152 @@ fn main() {
             println!("Invalid Conventional Commit message.");
             exit(1)
         }
-        Some(commit) => println!("Conventional Commit parsed successfully: {:?}", commit),
+        Some(commit) => println!("Conventional Commit parsed successfully:\n{}", commit),
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commit::{CommitFooter, CommitType, ConventionalCommit, BREAKING_CHANGES};
+    use crate::parse_conventional_commit;
+
+    #[test]
+    fn commit_message_with_description_and_breaking_change_footer() {
+        let commit_message = "feat: allow provided config object to extend other configs\n\nBREAKING CHANGE: `extends` key in config file is now used for extending other config files";
+        let commit = parse_conventional_commit(commit_message);
+        let commit_footer = CommitFooter {
+            token: "BREAKING CHANGE".to_owned(),
+            value: "`extends` key in config file is now used for extending other config files"
+                .to_owned(),
+        };
+        let commit_footers: Vec<CommitFooter> = vec![commit_footer];
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Feat,
+            scope: None,
+            is_breaking_change: true,
+            summary: "allow provided config object to extend other configs".to_owned(),
+            body: None,
+            footer: Some(commit_footers),
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_bang_to_draw_attention_to_breaking_change() {
+        let commit_message = "feat!: send an email to the customer when a product is shipped";
+        let commit = parse_conventional_commit(commit_message);
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Feat,
+            scope: None,
+            is_breaking_change: true,
+            summary: "send an email to the customer when a product is shipped".to_owned(),
+            body: None,
+            footer: None,
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_scope_and_bang_to_draw_attention_to_breaking_change() {
+        let commit_message = "feat(api)!: send an email to the customer when a product is shipped";
+        let commit = parse_conventional_commit(commit_message);
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Feat,
+            scope: Some("api".to_owned()),
+            is_breaking_change: true,
+            summary: "send an email to the customer when a product is shipped".to_owned(),
+            body: None,
+            footer: None,
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_both_bang_and_breaking_change_footer() {
+        let commit_message = "chore!: drop support for Node 6\n\nBREAKING CHANGE: use JavaScript features not available in Node 6.";
+        let commit = parse_conventional_commit(commit_message);
+        let commit_footer = CommitFooter {
+            token: BREAKING_CHANGES.to_owned(),
+            value: "use JavaScript features not available in Node 6.".to_owned(),
+        };
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Chore,
+            scope: None,
+            is_breaking_change: true,
+            summary: "drop support for Node 6".to_owned(),
+            body: None,
+            footer: Some(vec![commit_footer]),
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_no_body() {
+        let commit_message = "docs: correct spelling of CHANGELOG";
+        let commit = parse_conventional_commit(commit_message);
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Docs,
+            scope: None,
+            is_breaking_change: false,
+            summary: "correct spelling of CHANGELOG".to_owned(),
+            body: None,
+            footer: None,
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_scope() {
+        let commit_message = "feat(lang): add Polish language";
+        let commit = parse_conventional_commit(commit_message);
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Feat,
+            scope: Some("lang".to_owned()),
+            is_breaking_change: false,
+            summary: "add Polish language".to_owned(),
+            body: None,
+            footer: None,
+        });
+        assert_eq!(commit, expected_commit);
+    }
+
+    #[test]
+    fn commit_message_with_multi_paragraph_body_and_multiple_footers() {
+        let commit_message = "fix: prevent racing of requests
+
+Introduce a request id and a reference to latest request. Dismiss
+incoming responses other than from latest request.
+
+Remove timeouts which were used to mitigate the racing issue but are
+obsolete now.
+
+Reviewed-by: Z
+Refs: #123";
+        let commit = parse_conventional_commit(commit_message);
+        let expected_commit = Some(ConventionalCommit {
+            commit_type: CommitType::Fix,
+            scope: None,
+            is_breaking_change: false,
+            summary: "prevent racing of requests".to_owned(),
+            body: Some(
+                "Introduce a request id and a reference to latest request. Dismiss
+incoming responses other than from latest request.
+
+Remove timeouts which were used to mitigate the racing issue but are
+obsolete now."
+                    .to_owned(),
+            ),
+            footer: Some(vec![
+                CommitFooter {
+                    token: "Reviewed-by".to_owned(),
+                    value: "Z".to_owned(),
+                },
+                CommitFooter {
+                    token: "Refs".to_owned(),
+                    value: "#123".to_owned(),
+                },
+            ]),
+        });
+        assert_eq!(commit, expected_commit);
+    }
 }
