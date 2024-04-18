@@ -13,7 +13,7 @@ fn main() {
             println!("Invalid Conventional Commit message.");
             exit(1)
         }
-        Some(commit) => println!("Conventional Commit parsed successfully:\n{}", commit),
+        Some(c) => println!("Conventional Commit parsed successfully:\n{}", c),
     };
 }
 

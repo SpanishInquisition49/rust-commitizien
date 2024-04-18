@@ -68,6 +68,17 @@ pub struct CommitFooter {
     pub value: String,
 }
 
+impl Display for CommitFooter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{{}: {}}}",
+            format_string(self.token.clone()),
+            format_string(self.value.clone())
+        )
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct ConventionalCommit {
     pub commit_type: CommitType,
@@ -90,9 +101,22 @@ impl Display for ConventionalCommit {
             "- Is Breaking Change: {}\n",
             self.is_breaking_change.to_string().purple()
         ));
+        fmt.push_str(&format!(
+            "- Summary: {}\n",
+            format_string(self.summary.clone())
+        ));
         match &self.body {
             Some(b) => fmt.push_str(&format!("- Body: {}\n", format_string(b.clone()))),
             None => fmt.push_str("- Body:\n"),
+        }
+        match &self.footer {
+            Some(footers) => {
+                fmt.push_str("- Footers: [");
+                for footer in footers {
+                    fmt.push_str(&format!("{},", footer));
+                }
+            }
+            None => fmt.push_str("- Footers: []"),
         }
 
         write!(f, "{}", fmt)
