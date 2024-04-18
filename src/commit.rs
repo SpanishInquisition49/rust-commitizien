@@ -16,6 +16,8 @@ pub enum CommitType {
     Revert,
     Style,
     Test,
+    InvalidType(String),
+    MissingType,
 }
 
 impl FromStr for CommitType {
@@ -23,8 +25,8 @@ impl FromStr for CommitType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Ignore the ! for BREAKING CHANGE commits
-        let t: &str = &s.replace('!', "");
-        match t {
+        let t: String = s.replace('!', "");
+        match t.as_str() {
             "build" => Ok(CommitType::Build),
             "chore" => Ok(CommitType::Chore),
             "ci" => Ok(CommitType::Ci),
@@ -37,7 +39,13 @@ impl FromStr for CommitType {
             "style" => Ok(CommitType::Style),
             "test" => Ok(CommitType::Test),
             "tests" => Ok(CommitType::Test),
-            _ => Err(()),
+            _ => {
+                if t.is_empty() {
+                    Ok(CommitType::MissingType)
+                } else {
+                    Ok(CommitType::InvalidType(t))
+                }
+            }
         }
     }
 }
@@ -57,6 +65,8 @@ impl Display for CommitType {
             CommitType::Revert => fmt.push_str(&format!("{}", "\"revert\"".yellow())),
             CommitType::Style => fmt.push_str(&format!("{}", "\"style\"".yellow())),
             CommitType::Test => fmt.push_str(&format!("{}", "\"test\"".yellow())),
+            CommitType::InvalidType(_) => fmt.push_str("Invalid Commit Type"),
+            CommitType::MissingType => fmt.push_str("Missing Commit Type"),
         };
         write!(f, "{}", fmt)
     }

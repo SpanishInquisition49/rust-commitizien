@@ -3,18 +3,12 @@ mod parser;
 
 use crate::parser::parse_conventional_commit;
 use std::env;
-use std::process::exit;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let commit_msg = &args[1];
-    match parse_conventional_commit(commit_msg) {
-        None => {
-            println!("Invalid Conventional Commit message.");
-            exit(1)
-        }
-        Some(c) => println!("Conventional Commit parsed successfully:\n{}", c),
-    };
+    let c = parse_conventional_commit(commit_msg);
+    println!("Conventional Commit parsed successfully:\n{}", c);
 }
 
 #[cfg(test)]
@@ -32,14 +26,14 @@ mod tests {
                 .to_owned(),
         };
         let commit_footers: Vec<CommitFooter> = vec![commit_footer];
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Feat,
             scope: None,
             is_breaking_change: true,
             summary: "allow provided config object to extend other configs".to_owned(),
             body: None,
             footer: Some(commit_footers),
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -47,14 +41,14 @@ mod tests {
     fn commit_message_with_bang_to_draw_attention_to_breaking_change() {
         let commit_message = "feat!: send an email to the customer when a product is shipped";
         let commit = parse_conventional_commit(commit_message);
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Feat,
             scope: None,
             is_breaking_change: true,
             summary: "send an email to the customer when a product is shipped".to_owned(),
             body: None,
             footer: None,
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -62,14 +56,14 @@ mod tests {
     fn commit_message_with_scope_and_bang_to_draw_attention_to_breaking_change() {
         let commit_message = "feat(api)!: send an email to the customer when a product is shipped";
         let commit = parse_conventional_commit(commit_message);
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Feat,
             scope: Some("api".to_owned()),
             is_breaking_change: true,
             summary: "send an email to the customer when a product is shipped".to_owned(),
             body: None,
             footer: None,
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -81,14 +75,14 @@ mod tests {
             token: BREAKING_CHANGES.to_owned(),
             value: "use JavaScript features not available in Node 6.".to_owned(),
         };
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Chore,
             scope: None,
             is_breaking_change: true,
             summary: "drop support for Node 6".to_owned(),
             body: None,
             footer: Some(vec![commit_footer]),
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -96,14 +90,14 @@ mod tests {
     fn commit_message_with_no_body() {
         let commit_message = "docs: correct spelling of CHANGELOG";
         let commit = parse_conventional_commit(commit_message);
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Docs,
             scope: None,
             is_breaking_change: false,
             summary: "correct spelling of CHANGELOG".to_owned(),
             body: None,
             footer: None,
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -111,14 +105,14 @@ mod tests {
     fn commit_message_with_scope() {
         let commit_message = "feat(lang): add Polish language";
         let commit = parse_conventional_commit(commit_message);
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Feat,
             scope: Some("lang".to_owned()),
             is_breaking_change: false,
             summary: "add Polish language".to_owned(),
             body: None,
             footer: None,
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 
@@ -135,7 +129,7 @@ obsolete now.
 Reviewed-by: Z
 Refs: #123";
         let commit = parse_conventional_commit(commit_message);
-        let expected_commit = Some(ConventionalCommit {
+        let expected_commit = ConventionalCommit {
             commit_type: CommitType::Fix,
             scope: None,
             is_breaking_change: false,
@@ -158,7 +152,7 @@ obsolete now."
                     value: "#123".to_owned(),
                 },
             ]),
-        });
+        };
         assert_eq!(commit, expected_commit);
     }
 }
