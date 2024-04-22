@@ -1,14 +1,30 @@
 mod commit;
 mod parser;
 
+use colored::Colorize;
+
 use crate::parser::parse_conventional_commit;
 use std::env;
 
+fn help() {
+    println!(
+        "{} {}
+Check if the commmit message follow the Conventional Commit Standard.",
+        "Usage:".green(),
+        "rs-commitizien <commit message>".blue(),
+    );
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let commit_msg = &args[1];
-    let c = parse_conventional_commit(commit_msg);
-    println!("Conventional Commit parsed successfully:\n{}", c);
+    match args.len() {
+        2 => {
+            let commit_message = &args[1];
+            let commit = parse_conventional_commit(commit_message);
+            println!("Conventional Commit parsed successfully:\n{}", commit);
+        }
+        _ => help(),
+    }
 }
 
 #[cfg(test)]
