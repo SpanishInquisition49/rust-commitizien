@@ -1,7 +1,11 @@
 [package]
 name = "rs-commitizien"
 version = "0.1.0"
+authors = ["SpanishInquisition49"]
 edition = "2021"
+description = "A CLI Tool for validating commit messages"
+license = "MIT"
+repository = "https://github.com/SpanishInquisition49/rust-commitizien"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
